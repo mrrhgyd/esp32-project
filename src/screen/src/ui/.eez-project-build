@@ -1,0 +1,31 @@
+{
+  "files": [
+    "actions.h",
+    "fonts.h",
+    "images.c",
+    "images.h",
+    "screens.c",
+    "screens.h",
+    "structs.h",
+    "styles.c",
+    "styles.h",
+    "ui.c",
+    "ui.h",
+    "ui_font_ui_font_chinese_16.c",
+    "ui_image_bluetooth.c",
+    "ui_image_car.c",
+    "ui_image_dinosaur.c",
+    "ui_image_image_1.c",
+    "ui_image_image_10.c",
+    "ui_image_image_2.c",
+    "ui_image_image_3.c",
+    "ui_image_image_4.c",
+    "ui_image_image_5.c",
+    "ui_image_image_6.c",
+    "ui_image_image_7.c",
+    "ui_image_image_8.c",
+    "ui_image_image_9.c",
+    "ui_image_set.c",
+    "vars.h"
+  ]
+}
