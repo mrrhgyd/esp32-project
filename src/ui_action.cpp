@@ -3,6 +3,11 @@
 #include <string>
 #include <stdio.h>
 #include "dinosaur_run.hpp"
+#include "car_trajectory.hpp"
+#include "lockfree_queue.hpp"
+#include "bezier_curve.hpp"
+#include "car_comm.hpp"
+#include "pure_pursuit.hpp"
 #if defined(ESP_PLATFORM)
     #include "nvs_flash.h"
     #include "nvs.h"
@@ -221,6 +226,15 @@ extern "C"  {
             if(currentscr == objects.home)
             {
                 if(lv_scr_act()==objects.dinosaurscreen)dinosaurrun::getinstance().stop_game();
+
+                if(lv_scr_act()==objects.carcontrol)
+                {
+                    car_comm_send_cmd(0,0,128);
+                    CarTrajectory::getinstance().canvas_clear();
+                    if(g_pure_pursuit_ptr)g_pure_pursuit_ptr->reset(0.0f,0.0f,0.0f);
+                    g_trajectory_queue.clear();
+                }
+
                 ui_navigate_to(objects.desktop);//返回桌面
                 stack_len=0;
             }
@@ -231,7 +245,7 @@ extern "C"  {
             }
             if(currentscr == objects.car_control)ui_navigate_to(objects.carscreen);
             if(currentscr == objects.bluetooth_t)ui_navigate_to(objects.bluetoothscreen);
-
+            if(currentscr==objects.car){ui_navigate_to(objects.carcontrol);car_comm_send_cmd(0,0,128);}
         }
         
     }
@@ -412,13 +426,25 @@ extern "C"  {
             if(but==objects.back || but == objects.user_return || but == objects.user_return_blue)
             {
                 if(stack_len==0)return;
+                
                 if(lv_scr_act()==objects.dinosaurscreen)dinosaurrun::getinstance().stop_game();
+                
+                if(lv_scr_act()==objects.carcontrol)
+                {
+                    car_comm_send_cmd(0,0,128);
+                    CarTrajectory::getinstance().canvas_clear();
+                    if(g_pure_pursuit_ptr)g_pure_pursuit_ptr->reset(0.0f,0.0f,0.0f);
+                    g_trajectory_queue.clear();
+                }
+
                 lv_obj_t *tarscreen =screenstack[--stack_len];
                 lv_obj_set_parent(objects.fixed_key,tarscreen);
                 lv_obj_move_foreground(objects.fixed_key);
                 lv_scr_load(tarscreen);
 
                 if(tarscreen==objects.desktop)stack_len=0;
+
+
             }
         }
 
@@ -471,7 +497,7 @@ extern "C"  {
                 if(lv_obj_has_state(switchbut,LV_STATE_CHECKED))
                 {
                     #if defined(USE_SDL)
-                        printf("打开蓝牙");
+                        printf("open bluetooth\n");
                     #endif  
 
                     #if defined(ESP_PLATFORM)
@@ -481,7 +507,7 @@ extern "C"  {
                 else 
                 {
                     #if defined(USE_SDL)
-                        printf("关闭蓝牙");
+                        printf("close bluetooth\n");
                     #endif
 
                     #if defined(ESP_PLATFORM)
@@ -516,6 +542,34 @@ extern "C"  {
         }
     }
 
+    void action_canvas_touch(lv_event_t * e)
+    {
+        lv_event_code_t code=lv_event_get_code(e);
+        lv_indev_t *indev=lv_indev_get_act();
+        if(!indev)return;
+
+        lv_point_t point;
+        lv_indev_get_point(indev,&point);
+        if(code==LV_EVENT_PRESSED)
+        {
+            //起始，清空画布，获取坐标
+            CarTrajectory::getinstance().canvas_clear();
+            CarTrajectory::raw_touch_path.push_back(Point2D{(float)point.x,(float)point.y});
+        }
+        if(code==LV_EVENT_PRESSING)
+        {
+            //滑动中，获取坐标
+            CarTrajectory::raw_touch_path.push_back(Point2D{(float)point.x,(float)point.y});
+        }
+        if(code==LV_EVENT_PRESS_LOST||code==LV_EVENT_RELEASED)
+        {
+            if(CarTrajectory::raw_touch_path.size()>=2)
+            {
+                BezierCurve::generateFromTouchPath(CarTrajectory::raw_touch_path,CarTrajectory::all_points,30);
+                CarTrajectory::getinstance().canvas_drawbezier();               
+            }
+        }
+    }
 }
 
 

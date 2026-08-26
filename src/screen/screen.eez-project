@@ -195,6 +195,15 @@
       "componentGroups": [],
       "userProperties": [],
       "name": "start_dinosaur_run"
+    },
+    {
+      "objID": "9aa85963-0942-481c-ad80-d9309a28f949",
+      "components": [],
+      "connectionLines": [],
+      "localVariables": [],
+      "componentGroups": [],
+      "userProperties": [],
+      "name": "canvas_touch"
     }
   ],
   "userPages": [
@@ -1224,6 +1233,103 @@
                   "group": "",
                   "groupIndex": 0,
                   "text": "恐龙快跑",
+                  "textType": "literal",
+                  "longMode": "WRAP",
+                  "recolor": false
+                },
+                {
+                  "objID": "1325b946-30f7-4e68-de5a-656b471d2bd8",
+                  "type": "LVGLButtonWidget",
+                  "left": 21,
+                  "top": 122,
+                  "width": 50,
+                  "height": 50,
+                  "customInputs": [],
+                  "customOutputs": [],
+                  "style": {
+                    "objID": "f0c07b01-1cae-4cd7-9cc3-4a52ea49f394",
+                    "useStyle": "default",
+                    "conditionalStyles": [],
+                    "childStyles": []
+                  },
+                  "timeline": [],
+                  "eventHandlers": [
+                    {
+                      "objID": "55953c76-38f7-4df6-cf50-6ab14163658f",
+                      "eventName": "CLICKED",
+                      "handlerType": "action",
+                      "action": "change screen",
+                      "userData": 0
+                    }
+                  ],
+                  "identifier": "car",
+                  "leftUnit": "px",
+                  "topUnit": "px",
+                  "widthUnit": "px",
+                  "heightUnit": "px",
+                  "children": [],
+                  "widgetFlags": "CLICK_FOCUSABLE|GESTURE_BUBBLE|PRESS_LOCK|SCROLL_CHAIN_HOR|SCROLL_CHAIN_VER|SCROLL_ELASTIC|SCROLL_MOMENTUM|SCROLL_ON_FOCUS|SCROLL_WITH_ARROW|SNAPPABLE",
+                  "hiddenFlagType": "literal",
+                  "clickableFlag": true,
+                  "clickableFlagType": "literal",
+                  "flagScrollbarMode": "",
+                  "flagScrollDirection": "",
+                  "scrollSnapX": "",
+                  "scrollSnapY": "",
+                  "checkedStateType": "literal",
+                  "disabledStateType": "literal",
+                  "states": "",
+                  "localStyles": {
+                    "objID": "365fc83d-1fab-4009-88d4-4ea3165972b6"
+                  },
+                  "group": "",
+                  "groupIndex": 0
+                },
+                {
+                  "objID": "25a8498c-0305-4037-f55f-c4bf337cf5a1",
+                  "type": "LVGLLabelWidget",
+                  "left": -74,
+                  "top": 20,
+                  "width": 52,
+                  "height": 16,
+                  "customInputs": [],
+                  "customOutputs": [],
+                  "style": {
+                    "objID": "b48d0381-3b82-4cbc-8ad0-37b6ae52f39f",
+                    "useStyle": "default",
+                    "conditionalStyles": [],
+                    "childStyles": []
+                  },
+                  "timeline": [],
+                  "eventHandlers": [],
+                  "leftUnit": "px",
+                  "topUnit": "px",
+                  "widthUnit": "content",
+                  "heightUnit": "content",
+                  "children": [],
+                  "widgetFlags": "CLICK_FOCUSABLE|GESTURE_BUBBLE|PRESS_LOCK|SCROLLABLE|SCROLL_CHAIN_HOR|SCROLL_CHAIN_VER|SCROLL_ELASTIC|SCROLL_MOMENTUM|SCROLL_WITH_ARROW|SNAPPABLE",
+                  "hiddenFlagType": "literal",
+                  "clickableFlagType": "literal",
+                  "flagScrollbarMode": "",
+                  "flagScrollDirection": "",
+                  "scrollSnapX": "",
+                  "scrollSnapY": "",
+                  "checkedStateType": "literal",
+                  "disabledStateType": "literal",
+                  "states": "",
+                  "localStyles": {
+                    "objID": "5b6e174a-0415-423e-822a-b85a089b3fae",
+                    "definition": {
+                      "MAIN": {
+                        "DEFAULT": {
+                          "align": "CENTER"
+                        }
+                      }
+                    }
+                  },
+                  "group": "",
+                  "groupIndex": 0,
+                  "text": "Button",
                   "textType": "literal",
                   "longMode": "WRAP",
                   "recolor": false
@@ -6067,6 +6173,135 @@
       "componentGroups": [],
       "userProperties": [],
       "name": "dinosaurscreen",
+      "left": 0,
+      "top": 0,
+      "width": 240,
+      "height": 320,
+      "isUsedAsUserWidget": false,
+      "createAtStart": true,
+      "deleteOnScreenUnload": false
+    },
+    {
+      "objID": "efa56b04-91c5-4aa6-df1c-eb0b5de2aecb",
+      "components": [
+        {
+          "objID": "86349c95-8bf2-458d-f956-a4b4cebb67c4",
+          "type": "LVGLScreenWidget",
+          "left": 0,
+          "top": 0,
+          "width": 240,
+          "height": 320,
+          "customInputs": [],
+          "customOutputs": [],
+          "style": {
+            "objID": "a571f64a-0d72-428d-84f2-6f418ee99e54",
+            "useStyle": "default",
+            "conditionalStyles": [],
+            "childStyles": []
+          },
+          "timeline": [],
+          "eventHandlers": [],
+          "leftUnit": "px",
+          "topUnit": "px",
+          "widthUnit": "px",
+          "heightUnit": "px",
+          "children": [
+            {
+              "objID": "387cca92-41a6-4363-d509-3cd531192d47",
+              "type": "LVGLCanvasWidget",
+              "left": 0,
+              "top": 0,
+              "width": 240,
+              "height": 320,
+              "customInputs": [],
+              "customOutputs": [],
+              "style": {
+                "objID": "d9285434-db84-44a3-8289-8d220e8cd05a",
+                "useStyle": "default",
+                "conditionalStyles": [],
+                "childStyles": []
+              },
+              "timeline": [],
+              "eventHandlers": [
+                {
+                  "objID": "31a94d64-7f59-4b9f-dedf-1c7577af10e1",
+                  "eventName": "PRESSED",
+                  "handlerType": "action",
+                  "action": "canvas_touch",
+                  "userData": 0
+                },
+                {
+                  "objID": "419c6131-7799-4dc4-dfb9-9c5688cdaed2",
+                  "eventName": "PRESSING",
+                  "handlerType": "action",
+                  "action": "canvas_touch",
+                  "userData": 0
+                },
+                {
+                  "objID": "48764193-4a4d-4447-c3ea-f593019d68da",
+                  "eventName": "PRESS_LOST",
+                  "handlerType": "action",
+                  "action": "canvas_touch",
+                  "userData": 0
+                },
+                {
+                  "objID": "5ee26dff-a40e-47d3-db47-98ac7ec599ed",
+                  "eventName": "RELEASED",
+                  "handlerType": "action",
+                  "action": "canvas_touch",
+                  "userData": 0
+                }
+              ],
+              "identifier": "canvas",
+              "leftUnit": "px",
+              "topUnit": "px",
+              "widthUnit": "px",
+              "heightUnit": "px",
+              "children": [],
+              "widgetFlags": "ADV_HITTEST|CLICK_FOCUSABLE|GESTURE_BUBBLE|PRESS_LOCK|SCROLL_CHAIN_HOR|SCROLL_CHAIN_VER|SCROLL_ELASTIC|SCROLL_MOMENTUM|SCROLL_WITH_ARROW|SNAPPABLE",
+              "hiddenFlagType": "literal",
+              "clickableFlag": true,
+              "clickableFlagType": "literal",
+              "flagScrollbarMode": "",
+              "flagScrollDirection": "",
+              "scrollSnapX": "",
+              "scrollSnapY": "",
+              "checkedStateType": "literal",
+              "disabledStateType": "literal",
+              "states": "",
+              "localStyles": {
+                "objID": "68de815e-e7a2-4f3c-9b27-ee68539ab57d",
+                "definition": {
+                  "MAIN": {
+                    "DEFAULT": {
+                      "bg_opa": 255,
+                      "bg_color": "#352C71"
+                    }
+                  }
+                }
+              },
+              "group": "",
+              "groupIndex": 0
+            }
+          ],
+          "widgetFlags": "CLICKABLE|PRESS_LOCK|CLICK_FOCUSABLE|GESTURE_BUBBLE|SNAPPABLE|SCROLL_ELASTIC|SCROLL_MOMENTUM|SCROLL_CHAIN_HOR|SCROLL_CHAIN_VER",
+          "hiddenFlagType": "literal",
+          "clickableFlag": true,
+          "clickableFlagType": "literal",
+          "checkedStateType": "literal",
+          "disabledStateType": "literal",
+          "states": "",
+          "localStyles": {
+            "objID": "a0f05720-1655-4736-90f3-3ab353ffb3db"
+          },
+          "groupIndex": 0
+        }
+      ],
+      "connectionLines": [],
+      "localVariables": [],
+      "componentGroups": [],
+      "userProperties": [],
+      "name": "carcontrol",
       "left": 0,
       "top": 0,
       "width": 240,

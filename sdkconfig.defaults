@@ -9,6 +9,7 @@ CONFIG_SPIRAM_MODE_OCT=y
 CONFIG_SPIRAM_SPEED_80M=y
 CONFIG_SPIRAM_BOOT_INIT=y
 CONFIG_SPIRAM_USE_MALLOC=y
+CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL=64
 
 # 修复 Wi-Fi 与 PSRAM 冲突的核心安全补丁
 CONFIG_SPIRAM_TRY_ALLOCATE_WIFI_LWIP=y
@@ -25,3 +26,12 @@ CONFIG_BT_GATTS_ENABLE=n
 #开启BLE4.2兼容层
 CONFIG_BT_BLE_42_FEATURES_SUPPORTED=y
 # ======================================================
+
+# ====== FreeRTOS 双核 SMP 配置 ======
+# 启用对称多处理（SMP）模式，支持多核任务调度
+#CONFIG_FREERTOS_SMP=y
+# 明确关闭单核模式
+# CONFIG_FREERTOS_UNICORE is not set
+# 配置 FreeRTOS 支持双核
+CONFIG_FREERTOS_NUMBER_OF_CORES=2
+# ====================================

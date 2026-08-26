@@ -7,7 +7,8 @@
 
 #if defined(ESP_PLATFORM)
 #include "esp_log.h"
-static const char* TAG = "ble";
+
+static const char * TAG = "BSP";
 #define REMOTE_SERVICE_UUID         0XFFE0                          //目标蓝牙的service UUID
 #define REMOTE_NOTIFY_CHAR_UUID     0XFFE1                          //目标蓝牙的characteristic UUID
 static esp_bd_addr_t target_mac={0x3c,0xa5,0x51,0x96,0xfe,0x76};    //目标蓝牙的mac地址
@@ -111,7 +112,7 @@ void bsp_lcd_ili9341_init(void)
 
 void bsp_touch_ft6336_init(void)
 {
-    printf("[I2C] 启动经典 I2C 硬件配置（防空指针崩溃路径）...\n");
+    printf("[I2C] start I2C hardware config\n");
     // 2.1 配置并初始化硬件 I2C 通信主机总线
     i2c_master_bus_config_t i2c_conf={};                       
     i2c_conf.i2c_port =I2C_NUM_0;                     //配置ESP32-S3为I2C主机模式
@@ -126,11 +127,11 @@ void bsp_touch_ft6336_init(void)
    // 创建新版 I2C 主机总线
     esp_err_t ret = i2c_new_master_bus(&i2c_conf, &i2c_bus_handle);
     if (ret != ESP_OK) {
-        printf("[I2C ERROR] I2C 硬件总线创建失败! 错误: %s\n", esp_err_to_name(ret));
+        printf("[I2C ERROR] I2C hardware bus create failed! failure: %s\n", esp_err_to_name(ret));
         return;
     }
 
-    printf("[I2C] 创建总线成功\n");
+    printf("[I2C] hardware bus create success\n");
     
     //创建专门针对触摸接口的物理IO映射实例
     esp_lcd_panel_io_handle_t tp_io_handle=NULL;
@@ -146,11 +147,11 @@ void bsp_touch_ft6336_init(void)
     /*初始化 LCD 面板 I2C 通信接口。该函数创建一个面板 I/O 对象，专门用于通过 I2C 总线向 LCD 驱动芯片发送命令和数据，用于驱动如 GC9A01、ST7789 等支持 I2C 协议的显示屏。*/
     ret = esp_lcd_new_panel_io_i2c((i2c_master_bus_handle_t)i2c_bus_handle, &tp_io_config, &tp_io_handle);
     if (ret != ESP_OK || tp_io_handle == NULL) {
-        printf("[I2C ERROR] I2C IO 抽象层桥接失败! 错误: %s\n", esp_err_to_name(ret));
+        printf("[I2C ERROR] I2C IO abstract layer bridging failed! failure: %s\n", esp_err_to_name(ret));
         return;
     }
     
-    printf("[I2C] IO 抽象层桥接成功\n");
+    printf("[I2C] IO abstract layer bridging success\n");
 
 
     //实例化并正式启动触摸硬件
@@ -165,11 +166,11 @@ void bsp_touch_ft6336_init(void)
     ret = esp_lcd_touch_new_i2c_ft5x06(tp_io_handle,&tp_cfg,&tp);       //将它当成通用的FT驱动架构拉起来
     if (ret != ESP_OK) 
     {
-        printf("[I2C ERROR] 实例化 FT6336 驱动失败! 错误: %s\n", esp_err_to_name(ret));
+        printf("[I2C ERROR] falied to instantiate ft6336 driver! failure: %s\n", esp_err_to_name(ret));
         return;
     }
     
-    printf("成功\n");
+    printf("successed to instantiate ft6336 driver\n");
 
 }
 
@@ -309,7 +310,7 @@ static void esp_gattc_cb(esp_gattc_cb_event_t event,esp_gatt_if_t gattc_if,esp_b
     case ESP_GATTC_SEARCH_RES_EVT:{
         if (param->search_res.srvc_id.uuid.uuid.uuid16 == REMOTE_SERVICE_UUID)
         {
-            printf("找到目标服务\r\n");
+            printf("find target service\r\n");
         }
         break;
     }//每搜索到一个服务就触发一次
@@ -324,7 +325,7 @@ static void esp_gattc_cb(esp_gattc_cb_event_t event,esp_gatt_if_t gattc_if,esp_b
         esp_gatt_status_t status = esp_ble_gattc_get_char_by_uuid(gattc_if,param->search_cmpl.conn_id,0x0001,0xFFFF,char_uuid,&result,&count);
         /*1.GATT客户端访问接口  2.连接id    3.属性起始句柄  4.结束句柄  5.要查找的uuid  6.输出结果  7.检索数量*/
         if (status ==ESP_GATT_OK &&count>0)target_char_handle =result.char_handle;
-        else printf("未找到控制特征值");
+        else printf("control characteristic value not found\n");
         break;
     }
 
@@ -341,7 +342,7 @@ static void esp_gattc_cb(esp_gattc_cb_event_t event,esp_gatt_if_t gattc_if,esp_b
 
 static void ble_start_task(void *pvParameters)
 {
-    ESP_LOGI(TAG,"真正的【内部 DMA】连续可用内存: %d 字节\n", heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA));
+    ESP_LOGI(TAG," DMA continuous available memory: %d byte\n", heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA));
     esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();        //初始化蓝牙控制器结构体配置
     if(esp_bt_controller_init(&bt_cfg)!=ESP_OK)goto end;                              //初始化蓝牙控制器和使能，启用BLE模式
     if(esp_bt_controller_enable(ESP_BT_MODE_BLE)!=ESP_OK)goto end;

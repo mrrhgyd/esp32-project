@@ -272,6 +272,21 @@ void create_screen_desktop() {
                     lv_obj_set_style_text_color(obj, lv_color_hex(0x000000), LV_PART_MAIN | LV_STATE_DEFAULT);
                     lv_label_set_text_static(obj, "恐龙快跑");
                 }
+                {
+                    // car
+                    lv_obj_t *obj = lv_btn_create(parent_obj);
+                    objects.car = obj;
+                    lv_obj_set_pos(obj, 21, 122);
+                    lv_obj_set_size(obj, 50, 50);
+                    lv_obj_add_event_cb(obj, action_change_screen, LV_EVENT_CLICKED, (void *)0);
+                }
+                {
+                    lv_obj_t *obj = lv_label_create(parent_obj);
+                    lv_obj_set_pos(obj, -74, 20);
+                    lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+                    lv_obj_set_style_align(obj, LV_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
+                    lv_label_set_text_static(obj, "Button");
+                }
             }
         }
         {
@@ -1365,6 +1380,37 @@ void create_screen_dinosaurscreen() {
 void tick_screen_dinosaurscreen() {
 }
 
+void create_screen_carcontrol() {
+    lv_obj_t *obj = lv_obj_create(0);
+    objects.carcontrol = obj;
+    lv_obj_set_pos(obj, 0, 0);
+    lv_obj_set_size(obj, 240, 320);
+    lv_obj_clear_flag(obj, LV_OBJ_FLAG_SCROLLABLE);
+    {
+        lv_obj_t *parent_obj = obj;
+        {
+            // canvas
+            lv_obj_t *obj = lv_canvas_create(parent_obj);
+            objects.canvas = obj;
+            lv_obj_set_pos(obj, 0, 0);
+            lv_obj_set_size(obj, 240, 320);
+            lv_obj_add_event_cb(obj, action_canvas_touch, LV_EVENT_PRESSED, (void *)0);
+            lv_obj_add_event_cb(obj, action_canvas_touch, LV_EVENT_PRESSING, (void *)0);
+            lv_obj_add_event_cb(obj, action_canvas_touch, LV_EVENT_PRESS_LOST, (void *)0);
+            lv_obj_add_event_cb(obj, action_canvas_touch, LV_EVENT_RELEASED, (void *)0);
+            lv_obj_add_flag(obj, LV_OBJ_FLAG_CLICKABLE);
+            lv_obj_clear_flag(obj, LV_OBJ_FLAG_SCROLLABLE);
+            lv_obj_set_style_bg_opa(obj, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_bg_color(obj, lv_color_hex(0x352c71), LV_PART_MAIN | LV_STATE_DEFAULT);
+        }
+    }
+    
+    tick_screen_carcontrol();
+}
+
+void tick_screen_carcontrol() {
+}
+
 typedef void (*tick_screen_func_t)();
 tick_screen_func_t tick_screen_funcs[] = {
     tick_screen_lockscreen,
@@ -1375,9 +1421,10 @@ tick_screen_func_t tick_screen_funcs[] = {
     tick_screen_carscreen,
     tick_screen_bluetoothscreen,
     tick_screen_dinosaurscreen,
+    tick_screen_carcontrol,
 };
 void tick_screen(int screen_index) {
-    if (screen_index >= 0 && screen_index < 8) {
+    if (screen_index >= 0 && screen_index < 9) {
         tick_screen_funcs[screen_index]();
     }
 }
@@ -1483,4 +1530,5 @@ void create_screens() {
     create_screen_carscreen();
     create_screen_bluetoothscreen();
     create_screen_dinosaurscreen();
+    create_screen_carcontrol();
 }

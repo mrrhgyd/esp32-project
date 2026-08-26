@@ -25,6 +25,7 @@ void action_car_control(lv_event_t *e);//小车控制
 void action_switch_onoff(lv_event_t *e);//switch开关控制
 void action_start_dinosaur_run(lv_event_t *e);//打开恐龙快跑游戏
 void action_game_jump_control(lv_event_t *e);//可控制恐龙起跳
+void action_canvas_touch(lv_event_t * e);
 extern char correct_pin[7];
 
 #ifdef __cplusplus

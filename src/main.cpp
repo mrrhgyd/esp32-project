@@ -2,6 +2,11 @@
 #include "lvgl.h"
 #include <iostream>
 #include "ui_action.h"
+#include "lockfree_queue.hpp"
+#include "bezier_curve.hpp"
+#include "pure_pursuit.hpp"
+#include "car_comm.hpp"
+#include "car_trajectory.hpp"
 
 lv_disp_drv_t *g_disp_drv = NULL; // 暴露给 bsp_board.c
 // ==============================================================
@@ -49,6 +54,10 @@ void bsp_update_time(void)
 // ==============================================================
 #elif defined(ESP_PLATFORM)
     #include "bsp_board.h"
+    #include "esp_log.h"
+    #include <esp_heap_caps.h>
+    #include "rom/ets_sys.h"     // ets_delay_us - 忙等不任务切换
+    #include "driver/uart.h"      // uart_tx_wait_idle
     extern "C" void disp_flush(lv_disp_drv_t *drv, const lv_area_t *area, lv_color_t *color_map);
     extern "C" void touchpad_read(lv_indev_drv_t *indev_drv, lv_indev_data_t *data);
     extern "C" void bsp_lcd_ili9341_init(void);
@@ -61,6 +70,57 @@ void bsp_update_time(void)
     lv_tick_inc(2); // 每次定时器中断，给 LVGL 的寿命增加 2 毫秒
 }
 
+    static const char* TAG = "Main";
+    
+    // ============ Core 1 (PRO_CPU) 任务：Pure Pursuit + 蓝牙下发 ============
+    static void PurePursuitTask(void *pvParameters) {
+        ESP_LOGI(TAG, "========================================");
+        ESP_LOGI(TAG, "Core 1 (PRO_CPU) 启动: Pure Pursuit 任务");
+        ESP_LOGI(TAG, "任务核心: PRO_CPU (Core 1)");
+        ESP_LOGI(TAG, "频率: 50Hz (20ms)");
+        ESP_LOGI(TAG, "========================================");
+        
+         // 使用全局控制器指针 (已在 app_main 中初始化)
+        PurePursuit* controller = g_pure_pursuit_ptr;
+        if (!controller) {
+            ESP_LOGE(TAG, "控制器指针为空!");
+            vTaskDelete(NULL);
+            return;
+        }
+        
+        // 主控制循环
+        while(1) {
+            if(lv_scr_act()==objects.carcontrol)
+            {
+                // 1. 执行 Pure Pursuit 控制计算
+                PurePursuit::ControlCommand cmd = controller->update();
+                
+                // 2. 发送控制指令给 STM32 (蓝牙)
+                if (cmd.is_valid) {
+                    car_comm_send_cmd(cmd.mode, cmd.v_cmd, cmd.w_cmd);
+                }
+            }
+
+            
+            // 3. 20ms 周期 (50Hz)
+            vTaskDelay(pdMS_TO_TICKS(20));
+        }
+    }
+    
+
+    //============= Core 0 任务：UI界面渲染绘制
+    static void UITask(void *pvParameters)
+    {
+        while(1)
+        {
+            lv_timer_handler();
+            
+            bsp_update_time();
+            bsp_screen_dormancy();
+            vTaskDelay(pdMS_TO_TICKS(10));//强行释放cpu 10ms，防止看门狗咬人
+        }
+    }
+    
 #endif
 
 
@@ -95,8 +155,21 @@ int main(int argc, char **argv) {
 
     
     screen_init();
-
+    // ============ 模拟器模式：单线程运行所有逻辑 ============
+    PurePursuit::Config config;
+    config.lookahead_distance = 0.10f;
+    config.base_linear_speed = 0.30f;
+    config.target_tolerance = 0.02f;
+    config.control_frequency = 50.0f;
+    config.max_angular_speed = 3.0f;
+    config.min_linear_speed = 0.10f;
+    config.speed_factor = 0.5f;
     
+    PurePursuit controller;
+    controller.init(config);
+    controller.reset(0.0f, 0.0f, 0.0f);
+    
+    uint32_t last_control = 0;
     uint32_t last_tick = SDL_GetTicks();
     while(1)
     {
@@ -114,6 +187,18 @@ int main(int argc, char **argv) {
         uint32_t now = SDL_GetTicks();
         lv_tick_inc(now - last_tick);//告诉 LVGL 过了多少毫秒，更新内部时间基准
         last_tick = now;
+
+        // 执行 Pure Pursuit 控制 (50Hz)
+        if (now - last_control >= 20) {
+            last_control = now;
+            if(lv_scr_act()==objects.carcontrol)
+            {
+                auto cmd = controller.update();
+                if (cmd.is_valid) {
+                    car_comm_send_cmd(cmd.mode, cmd.v_cmd, cmd.w_cmd);
+                }
+            }
+        }
         bsp_update_time();
         lv_timer_handler();//lvgl心跳函数，处理lvgl任务(检查输入设备状态，处理所有挂起事件，重新计算受影响对象布局，重绘脏区域)，必须定期调用，否则界面卡死
         SDL_Delay(5);//降低cpu占用
@@ -130,33 +215,52 @@ int main(int argc, char **argv) {
 extern "C" void app_main(void)
 {
     esp_err_t ret = nvs_flash_init();
+    
     if(ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND)        //参数1:频繁写入导致NVS页耗尽，垃圾回收失败，擦除整个分区       参数1：固件升级后，NVS格式版本不匹配，擦除旧数据
     {
-        ESP_ERROR_CHECK(nvs_flash_erase());                                             //擦除整个NVS分区
+        ESP_ERROR_CHECK(nvs_flash_erase()); 
         ret = nvs_flash_init();
     }
     ESP_ERROR_CHECK(ret);
+     
     nvs_load_correct_pin();
-
     lv_init();
     bsp_lcd_ili9341_init();
     bsp_touch_ft6336_init();
     bsp_wifi_sntp_init();
+    car_comm_init();
 
     //显示缓冲区设置
     static lv_disp_draw_buf_t disp_buf;
+
+    // 缓冲区必须在内部 DRAM 中 (不能在 PSRAM)，且必须是 DMA 可用的
+    // 大小: 240 * 20 lines * 2 bytes = 9600 bytes per buffer
+    size_t buf_size = H_RES * 20 * sizeof(lv_color_t);
+
     // 申请第一块支持 DMA 且在高速内部内存中的 40 行缓冲区
-    lv_color_t *buf1 = (lv_color_t *)heap_caps_malloc(H_RES * 20 * sizeof(lv_color_t), MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL);
+    lv_color_t *buf1 = (lv_color_t *)heap_caps_aligned_alloc(4, buf_size, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL);
     // 申请第二块支持 DMA 且在高速内部内存中的 40 行缓冲区
-    lv_color_t *buf2 = (lv_color_t *)heap_caps_malloc(H_RES * 20 * sizeof(lv_color_t), MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL);
+    lv_color_t *buf2 = (lv_color_t *)heap_caps_aligned_alloc(4, buf_size, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL);
    
-    // 初始化双缓冲区（buf1, buf2 轮流接力，一个显示，另一个在后台偷偷画，绝无撕裂！）
-    lv_disp_draw_buf_init(&disp_buf, buf1, buf2, H_RES * 20);
     if (!buf1 || !buf2) {
-        printf("[FATAL ERROR] 显存分配失败，系统内存不足！\n");
+        ESP_LOGE(TAG, "[FATAL ERROR] 显存分配失败！buf1=%p, buf2=%p", buf1, buf2);
+        ESP_LOGE(TAG, "内部 DMA 连续可用内存: %d bytes", heap_caps_get_largest_free_block(MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL));
+        ESP_LOGE(TAG, "内部最大连续块: %d bytes", heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL));
         return; 
     }
-    printf("[内存校对] buf1 地址: %p, buf2 地址: %p\n", buf1, buf2);
+
+   
+    // 验证缓冲区在合法地址范围
+    ESP_LOGI(TAG, "buf1=%p, buf2=%p, size=%d", buf1, buf2, buf_size);
+    
+    uintptr_t addr = (uintptr_t)buf1;
+    if (addr >= 0x42000000 && addr < 0x42800000) {
+        ESP_LOGI(TAG, "在 PSRAM 中");
+    } else if (addr >= 0x3FCC0000 && addr < 0x3FD00000) {
+        ESP_LOGI(TAG, "在内部 DRAM 中");
+    }
+    // 初始化双缓冲区（buf1, buf2 轮流接力，一个显示，另一个在后台偷偷画，绝无撕裂！）
+    lv_disp_draw_buf_init(&disp_buf, buf1, buf2, H_RES * 20);
     
     static lv_disp_drv_t disp_drv;//显示驱动结构体
     lv_disp_drv_init(&disp_drv);
@@ -183,22 +287,59 @@ extern "C" void app_main(void)
     esp_timer_start_periodic(lvgl_tick_timer,2000);//每2ms触发一次中断
 
     
-    printf("[SYSTEM] 正在物理拉高背光引脚 GPIO 8...\n");
+    printf("[SYSTEM] physically swig up the backlight GPIO 8\n");
     gpio_set_direction((gpio_num_t)LCD_PIN_NUM_BLK, GPIO_MODE_OUTPUT);
     gpio_set_level((gpio_num_t)LCD_PIN_NUM_BLK, 1);
 
-    printf("[SYSTEM] 正在运行 UI 节点初始化...\n");
+    printf("[SYSTEM] run ui node init\n");
     
     screen_init();
-    printf("[SYSTEM] UI 节点初始化完毕，进入大循环守护进程...\n");
+    printf("[SYSTEM] enter big lop daemon\n");
+    
+    // ============ 关键：在调度器启动后初始化控制器 (避免静态初始化顺序问题) ============
+    static PurePursuit controller_instance;  // 静态局部变量，首次使用时初始化
+    g_pure_pursuit_ptr = &controller_instance;  // 设置全局指针
+    ESP_LOGI(TAG, "控制器地址: %p", g_pure_pursuit_ptr);
+    
+    // 初始化控制器配置
+    PurePursuit::Config config;
+    config.lookahead_distance = 0.10f;      // 预瞄距离 10cm
+    config.base_linear_speed = 0.30f;        // 基准线速度 0.3 m/s
+    config.target_tolerance = 0.02f;          // 到达容差 2cm
+    config.control_frequency = 50.0f;        // 控制频率 50Hz
+    config.max_angular_speed = 3.0f;         // 最大角速度 3 rad/s
+    config.min_linear_speed = 0.10f;          // 最小速度 0.1 m/s
+    config.speed_factor = 0.5f;              // 转弯减速系数
+    
+    g_pure_pursuit_ptr->init(config);
+    g_pure_pursuit_ptr->reset(0.0f, 0.0f, 0.0f);
 
-    while(1)
-    {
-        lv_timer_handler();
-        bsp_update_time();
-        bsp_screen_dormancy();
-        vTaskDelay(pdMS_TO_TICKS(10));//强行释放cpu 10ms，防止看门狗咬人
-    }
+    // ============ 创建 Core 1 任务 (PRO_CPU) ============
+    // 优先级 5 (高于 UI)，运行 Pure Pursuit 高频控制
+    ESP_LOGI(TAG, "创建 Core 1 (PRO_CPU) 任务: Pure Pursuit");
+    xTaskCreatePinnedToCore(
+        PurePursuitTask ,       //任务函数
+        "PurePursuit" ,         //任务名称
+        8192,                   //栈大小（8kb）
+        NULL,                   //参数：不需要，任务内部使用 g_pure_pursuit_ptr
+        5,                      //优先级（5）
+        NULL,                   //任务句柄
+        1                       //核心：PRO_CPU(Core 1)
+    );
+
+    // ============ 主循环运行在 Core 0 (APP_CPU) ============
+    ESP_LOGI(TAG, "主循环运行在 Core 0 (APP_CPU): UI 渲染 + 贝塞尔曲线");
+    xTaskCreatePinnedToCore(
+        UITask,
+        "UITask",
+        8192,
+        NULL,
+        4,
+        NULL,
+        0
+    );
+
+    vTaskDelete(NULL);
 
 }
 

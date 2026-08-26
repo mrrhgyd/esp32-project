@@ -19,7 +19,8 @@ enum ScreensEnum {
     SCREEN_ID_CARSCREEN = 6,
     SCREEN_ID_BLUETOOTHSCREEN = 7,
     SCREEN_ID_DINOSAURSCREEN = 8,
-    _SCREEN_ID_LAST = 8
+    SCREEN_ID_CARCONTROL = 9,
+    _SCREEN_ID_LAST = 9
 };
 
 typedef struct _objects_t {
@@ -31,6 +32,7 @@ typedef struct _objects_t {
     lv_obj_t *carscreen;
     lv_obj_t *bluetoothscreen;
     lv_obj_t *dinosaurscreen;
+    lv_obj_t *carcontrol;
     lv_obj_t *time;
     lv_obj_t *date;
     lv_obj_t *day;
@@ -45,6 +47,7 @@ typedef struct _objects_t {
     lv_obj_t *app2;
     lv_obj_t *dino_run;
     lv_obj_t *obj1;
+    lv_obj_t *car;
     lv_obj_t *fixed_key;
     lv_obj_t *obj2;
     lv_obj_t *home;
@@ -102,6 +105,7 @@ typedef struct _objects_t {
     lv_obj_t *cacti3;
     lv_obj_t *score_label;
     lv_obj_t *game_over_label;
+    lv_obj_t *canvas;
 } objects_t;
 
 extern objects_t objects;
@@ -129,6 +133,9 @@ void tick_screen_bluetoothscreen();
 
 void create_screen_dinosaurscreen();
 void tick_screen_dinosaurscreen();
+
+void create_screen_carcontrol();
+void tick_screen_carcontrol();
 
 void tick_screen_by_id(enum ScreensEnum screenId);
 void tick_screen(int screen_index);
