@@ -338,6 +338,17 @@ extern "C" void app_main(void)
         NULL,
         0
     );
+    
+    //============蓝牙信息接收运行在 CORE0 =========================
+    xTaskCreatePinnedToCore(
+        bsp_bt_ble_receive,
+        "bsp_bt_ble_receive",
+        4096,
+        NULL,
+        5,
+        NULL,
+        0
+    );
 
     vTaskDelete(NULL);
 

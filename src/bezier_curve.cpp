@@ -183,8 +183,7 @@ int BezierCurve::generateFromTouchPath(const std::vector<Point2D>& touch_points,
         for (int i = 1; i < desired_count - 1; i++) {
             float target = i * step;
             // 找到目标距离所在的线段
-            while (seg_idx + 1 < touch_points.size() - 1 &&
-                   accum + seg_len < target) {
+            while (seg_idx + 1 < touch_points.size() - 1 && accum + seg_len < target) {
                 accum += seg_len;
                 seg_idx++;
                 seg_len = distance(touch_points[seg_idx], touch_points[seg_idx + 1]);
@@ -230,25 +229,20 @@ int BezierCurve::generateFromTouchPath(const std::vector<Point2D>& touch_points,
             
             // 计算中间控制点 (基于前一段的斜率)
             Point2D p1, p2;
-            
-            if (start_idx == 0) {
-                // 第一段：控制点 1 为起点，控制点 2 为终点前一点
-                p1 = touch_points[start_idx];
-                p2 = (end_idx > 0) ? touch_points[end_idx - 1] : lerp(p0, p3, 0.5f);
-            } else {
-                // 后续段：基于前一段最后一点的切线方向
-                size_t prev_end = start_idx - 1;
-                Point2D prev_dir = { p0.x - touch_points[prev_end].x,
-                                     p0.y - touch_points[prev_end].y };
-                
-                float dir_len = sqrtf(prev_dir.x * prev_dir.x + prev_dir.y * prev_dir.y);
-                if (dir_len > 0.01f) { prev_dir.x /= dir_len; prev_dir.y /= dir_len; }
-                
-                float ctrl_offset = distance(p0, p3) * 0.3f;
-                p1 = { p0.x + prev_dir.x * ctrl_offset,
-                       p0.y + prev_dir.y * ctrl_offset };
-                p2 = lerp(p0, p3, 0.7f);
-            }
+            float ctrl_offset = distance(p0, p3) * 0.3f;
+
+
+            Point2D out_dir={touch_points[start_idx+1].x-p0.x , touch_points[start_idx+1].y-p0.y};
+            float out_len = sqrtf(out_dir.x * out_dir.x + out_dir.y * out_dir.y);
+            if (out_len > 0.01f) { out_dir.x /= out_len; out_dir.y /= out_len; }
+            p1 = { p0.x + out_dir.x * ctrl_offset,
+                    p0.y + out_dir.y * ctrl_offset };
+
+            Point2D in_dir = { p3.x - touch_points[end_idx - 1].x , p3.y - touch_points[end_idx - 1].y };
+            float in_len = sqrtf(in_dir.x * in_dir.x + in_dir.y * in_dir.y);
+            if (in_len > 0.01f) { in_dir.x /= in_len; in_dir.y /= in_len; }
+            p2 = { p3.x - in_dir.x * ctrl_offset , p3.y - in_dir.y * ctrl_offset };
+        
             
             CubicBezier curve = {p0, p1, p2, p3};
             std::vector<Point2D> seg_points;

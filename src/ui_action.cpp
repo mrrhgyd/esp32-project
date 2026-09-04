@@ -32,7 +32,7 @@ extern "C"  {
     int global_car_speed=0;                 //确定后的速度值
 
 
-    void nvs_save_correct_pin(const char *pin)//保存密码到nvs
+    void nvs_save_correct_pin(const char *pin)
     {   
         #if defined(ESP_PLATFORM) 
         nvs_handle_t my_handle;

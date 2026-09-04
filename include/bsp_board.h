@@ -58,20 +58,84 @@ extern "C" {
 #define WIFI_SSID           "PRK66"              //wifi名称
 #define WIFI_PASS           "13808850203"        //wifi密码
 
-void disp_flush(lv_disp_drv_t *drv, const lv_area_t *area, lv_color_t *color_map);// LVGL 刷屏回调 (ESP32)，当 UI 有变化时，LVGL 会自动把算好的点阵推送到这里
-void touchpad_read(lv_indev_drv_t *indev_drv, lv_indev_data_t *data);// LVGL 触摸回调 (ESP32)，每隔大约 30ms，LVGL 会来这里“查岗”看有没有被戳
-void bsp_lcd_ili9341_init(void);//初始化 ili9341 屏幕硬件并注册到 LVGL
-void bsp_touch_ft6336_init(void);//初始化 FT6336 屏幕硬件并注册到 LVGL
-void bsp_wifi_sntp_init(void);//联网组件初始化主配置
-void bsp_update_time(void);//自动获取 SNTP 网络时间并格式化刷新到 UI，日期后自动附带中文星期几
-void bsp_screen_dormancy(void);//屏幕休眠和唤醒
-void bsp_bt_ble_start(void);//开启蓝牙
-void bsp_bt_ble_stop(void);//关闭蓝牙
-void bsp_bt_ble_send(uint8_t *data,size_t len);//发送信息
-bool bsp_bt_is_connect(void);//检测蓝牙是否连接成功
+/**
+ * @brief 刷屏回调 (ESP32)，当 UI 有变化时，LVGL 会自动把算好的点阵推送到这里
+ * @param drv 显示驱动
+ * @param area 矩形区域结构体指针
+ * @param color_map 像素颜色数组指针
+ */
+void disp_flush(lv_disp_drv_t *drv, const lv_area_t *area, lv_color_t *color_map);
 
+/**
+ * @brief LVGL 触摸回调 (ESP32)，每隔大约 30ms，LVGL 会来这里“查岗”看有没有被戳
+ */
+void touchpad_read(lv_indev_drv_t *indev_drv, lv_indev_data_t *data);
+
+/**
+ * @brief 初始化 ili9341 屏幕硬件并注册到 LVGL
+ */
+void bsp_lcd_ili9341_init(void);
+
+/**
+ * @brief 初始化 FT6336 屏幕硬件并注册到 LVGL
+ */
+void bsp_touch_ft6336_init(void);
+
+/**
+ * @brief 联网组件初始化主配置
+ */
+void bsp_wifi_sntp_init(void);
+
+/**
+ * @brief 自动获取 SNTP 网络时间并格式化刷新到 UI，日期后自动附带中文星期几
+ */
+void bsp_update_time(void);
+
+/**
+ * @brief 屏幕休眠和唤醒
+ */
+void bsp_screen_dormancy(void);
+
+/**
+ * @brief //开启蓝牙
+ */
+void bsp_bt_ble_start(void);
+
+ /**
+ * @brief //关闭蓝牙
+ */
+void bsp_bt_ble_stop(void);
+
+/**
+ * @brief 发送信息
+ * @param data 发送数据
+ * @param len 发送数据长度
+ */
+void bsp_bt_ble_send(uint8_t *data,size_t len);
+
+/**
+ * @brief 检测蓝牙是否连接成功
+ * @return 
+ *  -ture 连接成功 
+ *  -false 连接失败
+ */
+bool bsp_bt_is_connect(void);
+
+/**
+ * @brief 接收信息
+ */
+void bsp_bt_ble_receive(void *pvParmeters);
+
+/**
+ * @brief 状态机解析
+ * @param data 需要解析的数据
+ */
+void statemachine_parse(uint8_t &data);
 #endif
 
+/**
+ * @brief 初始化和建立组件
+ */
 void screen_init();
 
 #ifdef __cplusplus

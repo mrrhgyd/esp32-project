@@ -51,7 +51,19 @@ public:
         uint8_t w_cmd;   // 角速度命令 (0-255, 128 为中心, 映射自角速度)
         bool is_valid;   // 指令是否有效
     };
-
+    /**
+     * @brief stm32回传的数据
+     * @param bcc 异或校验位
+     */
+    struct receivecmd
+    {
+       uint8_t v;
+       uint8_t w;
+       uint8_t yaw;
+       uint8_t bcc;
+       bool is_read;
+    };
+    
     PurePursuit();
     
     /**
@@ -82,14 +94,14 @@ public:
     /**
      * @brief 设置车辆状态 (用于外部里程计数据回传)
      */
-    void setState(float x, float y, float theta);
+    void setState(float dt);
 
 
     /**
      * @brief 检查是否已完成所有轨迹点
      */
     bool isTrajectoryComplete() const { return trajectory_complete_; }
-
+    receivecmd read_cmd;
 
 private:
     /**

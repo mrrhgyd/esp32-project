@@ -3,7 +3,7 @@
 #include "screens.h"
 #include "ui.h"
 #include "ui_action.h"
-
+#include "pure_pursuit.hpp"
 
 #if defined(ESP_PLATFORM)
 #include "esp_log.h"
@@ -23,6 +23,8 @@ esp_lcd_touch_handle_t tp = NULL;                                   //触摸芯�
 static bool screen_is_blk = false;                                  // 静态全局变量，用于记录屏幕当前的背光开关状态
 
 static i2c_master_bus_handle_t i2c_bus_handle = NULL;               // 声明全局的 I2C 主机总线句柄（静态，仅当前文件可见）
+static StreamBufferHandle_t xStreamBuffer=xStreamBufferCreate(128,1);
+enum class Rxstate{WAIT_HEAD,WAIT_V,WAIT_W,WAIT_YAW,WAIT_BCC,WAIT_TATL};
 
 extern "C" void nvs_load_correct_pin(void);
 
@@ -34,7 +36,7 @@ static bool on_color_trans_done(esp_lcd_panel_io_handle_t panel_io, esp_lcd_pane
     return false;
 }
 
-void disp_flush(lv_disp_drv_t *drv, const lv_area_t *area, lv_color_t *color_map) //参数：驱动结构体指针，矩形区域结构体指针，像素颜色数组指针
+void disp_flush(lv_disp_drv_t *drv, const lv_area_t *area, lv_color_t *color_map) 
 {
     esp_lcd_panel_draw_bitmap(panel_handle, area->x1, area->y1, area->x2 + 1, area->y2 + 1, color_map);// 调用乐鑫高速 API，通过 DMA 将 color_map（像素数组）直接砸进屏幕对应的矩形区域中
     //lv_disp_flush_ready(drv);// 通知 LVGL 引擎：当前区域已经刷新完毕，你可以准备刷新下一帧了
@@ -282,6 +284,59 @@ void bsp_bt_ble_send(uint8_t *data,size_t len)
     /*参数6：写入类型（是否需要响应）       参数7：请求认证类型：NONE：无需认证  MITM：中间人保护     NO_MITM：需要加密但无需MITM     SIGNED：需要签名写入*/
 }
 
+void bsp_bt_ble_receive(void *pvParmeters)
+{
+    uint8_t rx_byte;
+    while(1)
+    {
+        if(xStreamBufferReceive(xStreamBuffer,&rx_byte,1,portMAX_DELAY))statemachine_parse(rx_byte);
+    }
+}
+
+void statemachine_parse(uint8_t &data)
+{
+    static uint32_t last_rx_time=0;
+    static Rxstate rx_state=Rxstate::WAIT_HEAD;
+    uint32_t now=xTaskGetTickCount();
+    if(rx_state!=Rxstate::WAIT_HEAD&&(now-last_rx_time>pdMS_TO_TICKS(50)))rx_state=Rxstate::WAIT_HEAD;//防止丢包卡死
+    last_rx_time=now;
+    switch(rx_state)
+    {
+        case Rxstate::WAIT_HEAD:
+            if(data==0xaa){rx_state=Rxstate::WAIT_V;g_pure_pursuit_ptr->read_cmd.bcc=0;}
+            break;
+        case Rxstate::WAIT_V:
+            g_pure_pursuit_ptr->read_cmd.v=data;
+            g_pure_pursuit_ptr->read_cmd.bcc^=data;
+            rx_state=Rxstate::WAIT_W;
+            break;
+        case Rxstate::WAIT_W:
+            g_pure_pursuit_ptr->read_cmd.w=data;
+            g_pure_pursuit_ptr->read_cmd.bcc^=data;
+            rx_state=Rxstate::WAIT_YAW;
+            break;
+        case Rxstate::WAIT_YAW:
+            g_pure_pursuit_ptr->read_cmd.yaw=data;
+            g_pure_pursuit_ptr->read_cmd.bcc^=data;
+            rx_state=Rxstate::WAIT_BCC;
+            break;
+        case Rxstate::WAIT_BCC:
+            if(data==g_pure_pursuit_ptr->read_cmd.bcc){
+                rx_state=Rxstate::WAIT_TATL;
+                last_rx_time=xTaskGetTickCount();
+                g_pure_pursuit_ptr->read_cmd.is_read=false;
+            }
+            else rx_state=Rxstate::WAIT_HEAD;
+            break;
+        case Rxstate::WAIT_TATL:
+            rx_state=Rxstate::WAIT_HEAD;
+            break;            
+        default:
+            rx_state=Rxstate::WAIT_HEAD;
+            break;
+    }
+}
+
 bool bsp_bt_is_connect(void)
 {
     return is_ble_connect &&(target_char_handle !=0);
@@ -324,14 +379,60 @@ static void esp_gattc_cb(esp_gattc_cb_event_t event,esp_gatt_if_t gattc_if,esp_b
 
         esp_gatt_status_t status = esp_ble_gattc_get_char_by_uuid(gattc_if,param->search_cmpl.conn_id,0x0001,0xFFFF,char_uuid,&result,&count);
         /*1.GATT客户端访问接口  2.连接id    3.属性起始句柄  4.结束句柄  5.要查找的uuid  6.输出结果  7.检索数量*/
-        if (status ==ESP_GATT_OK &&count>0)target_char_handle =result.char_handle;
+        if (status ==ESP_GATT_OK &&count>0)
+        {
+            target_char_handle =result.char_handle;
+            // ====== 注册接收 Notify 回调 ======
+            esp_err_t reg_err=esp_ble_gattc_register_for_notify(gattc_if,target_mac,target_char_handle);
+            if (reg_err == ESP_OK) printf("register_for_notify API OK, async in progress\r\n");
+            else printf("register_for_notify API FAILED, err=0x%x (%s)\r\n",reg_err, esp_err_to_name(reg_err));
+           
+        }
         else printf("control characteristic value not found\n");
+        break;
+    }
+
+    case ESP_GATTC_REG_FOR_NOTIFY_EVT:{
+        if(param->reg_for_notify.status==ESP_GATT_OK)
+        {
+            //CCCD描述符的UUID在蓝牙规范中笃定为0x2902
+            uint16_t notify_en=0x0001;
+            
+            //查找这个特征值下的0x2902描述符句柄
+            esp_bt_uuid_t descr_uuid={.len=ESP_UUID_LEN_16,.uuid={.uuid16=ESP_GATT_UUID_CHAR_CLIENT_CONFIG}};
+            esp_gattc_descr_elem_t descr_result;
+            uint16_t descr_count=1;
+            esp_gatt_status_t descr_status=esp_ble_gattc_get_descr_by_char_handle(
+                gattc_if,client_conn_id,target_char_handle,descr_uuid,&descr_result,&descr_count
+            );
+            //如果找到了CCCD描述符，把0x0001写入
+            if(descr_status==ESP_GATT_OK&&descr_count>0){
+                esp_ble_gattc_write_char_descr(
+                    gattc_if,
+                    client_conn_id,
+                    descr_result.handle,
+                    sizeof(notify_en),
+                    (uint8_t*)&notify_en,
+                    ESP_GATT_WRITE_TYPE_RSP,
+                    ESP_GATT_AUTH_REQ_NONE);
+                printf("success send cmd to stm32");
+            } 
+            else printf("fail to find cccd");
+
+        }
         break;
     }
 
     case ESP_GATTC_DISCONNECT_EVT:
         is_ble_connect=false;
         target_char_handle=0;
+        break;
+    
+    case ESP_GATTC_NOTIFY_EVT:
+        if(param->notify.is_notify){
+            printf("receive notify,length:%d byte",param->notify.value_len);
+            xStreamBufferSend(xStreamBuffer,param->notify.value,param->notify.value_len,portMAX_DELAY);
+        }
         break;
 
     default:

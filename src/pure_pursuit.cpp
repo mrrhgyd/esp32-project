@@ -40,10 +40,21 @@ void PurePursuit::reset(float x, float y, float theta) {
 }
 
 // 外部设置状态 (真实里程计回传)
-void PurePursuit::setState(float x, float y, float theta) {
-    state_.x = x;
-    state_.y = y;
-    state_.theta = theta;
+void PurePursuit::setState(float dt) {
+    if(!read_cmd.is_read)
+    {
+        float v=(float)(read_cmd.v-128)*0.6f/127.0f;
+        float w=(float)(read_cmd.w-128)*3.0f/127.0f;
+        float yaw=(float)(read_cmd.yaw-128.0f)/128.0f*(float)M_PI;
+        
+        state_.theta=yaw;
+        state_.x+=v*cosf(state_.theta)*dt;
+        state_.y+=v*sinf(state_.theta)*dt;
+        state_.v=v;
+        state_.w=w;
+        read_cmd.is_read=true;
+    }
+    
 }
 
 
@@ -78,7 +89,7 @@ void PurePursuit::computeControl(const Point2D& target, float& v, float& w) {
     // 自适应预瞄距离: 距离越远，Ld 越大 (但不超过配置值)
     float adaptive_ld = config_.lookahead_distance;
     if (dist > config_.lookahead_distance) {
-        adaptive_ld = dist;  // 远距离直接跟随
+        adaptive_ld = fminf(dist, config_.lookahead_distance * 3.0f);  // 远距离直接跟随
     }
     
     // Pure Pursuit 角速度计算
@@ -131,6 +142,12 @@ PurePursuit::ControlCommand PurePursuit::update() {
     ControlCommand cmd;
     cmd.is_valid = false;
     
+    //更新里程计 (20ms 周期)
+    float dt = 1.0f / config_.control_frequency;
+    #ifdef ESP_PLATFORM
+    setState(dt);
+    #endif    
+
     // 1. 如果没有目标点，尝试从队列获取
     if (!has_target_) {
         Point2D new_target;
@@ -195,10 +212,10 @@ PurePursuit::ControlCommand PurePursuit::update() {
     // 4. 计算控制量
     float v, w;
     computeControl(current_target_, v, w);
-    
-    // 5. 更新虚拟里程计 (20ms 周期)
-    float dt = 1.0f / config_.control_frequency;
+    //更新虚拟里程计（SDL模拟使用）
+    #ifdef USE_SDL
     updateOdometry(v, w, dt);
+    #endif
     
     // 6. 映射为蓝牙协议格式
     // 协议: mode | v(0-255) | w(128 中心, 0-255)
